@@ -180,24 +180,33 @@ sub request {
 
 			if (ref $result eq 'DDG::ZeroClickInfo::Spice') {
 				
-				my $filename = $result->caller->module_share_dir;
-				$filename =~ s/share\/spice\///g;
-				$filename =~ s/\//\_/g;
+				my $spice_dir = $result->caller->module_share_dir;
+                sub spice_name {
+                    my $package = shift;
+                    $package =~ s,share/spice/,,g;
+                    $package =~ s,/,_,g;
+                    $package;
+                }
+                my %resources = ( $spice_dir => spice_name $spice_dir );
+                while ($spice_dir =~ s,/([^/]+)$,,) {
+                    last if "$spice_dir" eq "share/spice";
+                    $resources{$spice_dir} = spice_name $spice_dir;
+                }
 
-				my $io = io($result->caller->module_share_dir);
-				my @files = @$io;
-				foreach (@files){
-					if ($_->filename =~ /$filename\.js$/){
-						push (@calls_nrj, $_);
-					
-					}	elsif ($_->filename =~ /$filename\.css$/){
-						push (@calls_nrc, $_);
-					
-					} elsif ($_->filename =~ /^.+handlebars$/){
-						push (@calls_template, $_);
-					}
-				}
-				push (@calls_nrj, $result->call_path);
+                for my $dir (keys %resources) {
+                    my $io = io($dir);
+                    my @files = @$io;
+                    foreach (@files){
+                        if ($_->filename =~ /$resources{$dir}\.js$/){
+                            push (@calls_nrj, $_);
+                        }	elsif ($_->filename =~ /$resources{$dir}\.css$/){
+                            push (@calls_nrc, $_);
+                        } elsif ($_->filename =~ /^.+handlebars$/){
+                            push (@calls_template, $_);
+                        }
+                    }
+                    push (@calls_nrj, $result->call_path);
+                }
 
 			} else {
 				my $content = $root->look_down(
